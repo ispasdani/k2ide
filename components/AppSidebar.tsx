@@ -11,6 +11,7 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  useSidebar,
 } from "./ui/sidebar";
 import {
   Bot,
@@ -25,6 +26,8 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import { Button } from "./ui/button";
+import Image from "next/image";
+import LogoSvg from "@/svgs/LogoSvg";
 
 const items = [
   {
@@ -73,9 +76,16 @@ const projects = [
 
 const AppSidebar = () => {
   const pathname = usePathname();
+  const { open } = useSidebar();
+
   return (
     <Sidebar collapsible="icon" variant="floating">
-      <SidebarHeader>Logo</SidebarHeader>
+      <SidebarHeader>
+        <div className="flex items-center justify-start">
+          <LogoSvg className="w-[24px] h-[24px] m-2" />
+          {open && <h1 className="text-2xl font-bold text-primary">K2-IDE</h1>}
+        </div>
+      </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
           <SidebarGroupLabel>Application</SidebarGroupLabel>
@@ -138,7 +148,7 @@ const AppSidebar = () => {
                     className="w-fit cursor-pointer"
                   >
                     <Plus />
-                    Create Project
+                    {open && "Create Project"}
                   </Button>
                 </Link>
               </SidebarMenuItem>
