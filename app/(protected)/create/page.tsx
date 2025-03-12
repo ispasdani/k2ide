@@ -143,7 +143,9 @@ const CreatePage = () => {
               </Button>
             </div>
             <div className="h-2" />
-            <Button type="submit">Create Project</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              Create Project
+            </Button>
           </form>
         </div>
       </div>
