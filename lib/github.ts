@@ -21,6 +21,8 @@ type Response = {
 export const getCommitHashes = async (
   githubUrl: string
 ): Promise<Response[]> => {
+  const [owner, repo] = githubUrl.split("/").slice(-2);
+
   const { data } = await octokit.rest.repos.listCommits({
     owner: "ispasdani",
     repo: "gitnius-app",
@@ -85,3 +87,7 @@ async function filterUnprocessedCommits(
 
   return unprocessedCommits;
 }
+
+async function summariseCommit(githubUrl: string, commitHash: string) {}
+
+// ts-node lib/github.ts
