@@ -46,47 +46,47 @@ export const getCommitHashes = async (
 };
 
 // Execute the function and log the result
-getCommitHashes(githubUrl)
-  .then((result: Response[]) => console.log(result))
-  .catch((error: any) => console.error("Error fetching commits:", error));
+// getCommitHashes(githubUrl)
+//   .then((result: Response[]) => console.log(result))
+//   .catch((error: any) => console.error("Error fetching commits:", error));
 
-export const pollCommits = async (projectId: string) => {
-  const { project, githubUrl } = await fetchProjectGithubUrl(projectId);
-  const commitHashes = await getCommitHashes(githubUrl);
-  const unprocessedCommits = await filterUnprocessedCommits(
-    projectId,
-    commitHashes
-  );
-};
+// export const pollCommits = async (projectId: string) => {
+//   const { project, githubUrl } = await fetchProjectGithubUrl(projectId);
+//   const commitHashes = await getCommitHashes(githubUrl);
+//   const unprocessedCommits = await filterUnprocessedCommits(
+//     projectId,
+//     commitHashes
+//   );
+// };
 
-async function fetchProjectGithubUrl(projectId: string) {
-  const project = await convex.query(api.projects.getProjectByProjectId, {
-    projectId: projectId as Id<"project">,
-  });
+// async function fetchProjectGithubUrl(projectId: string) {
+//   const project = await convex.query(api.projects.getProjectByProjectId, {
+//     projectId: projectId as Id<"project">,
+//   });
 
-  if (!project?.githubUrl) {
-    throw new Error("Project has no github url.");
-  }
+//   if (!project?.githubUrl) {
+//     throw new Error("Project has no github url.");
+//   }
 
-  return { project, githubUrl: project.githubUrl };
-}
+//   return { project, githubUrl: project.githubUrl };
+// }
 
-async function filterUnprocessedCommits(
-  projectId: string,
-  commitHashes: Response[]
-) {
-  const processedCommits = await db.commit.findMany({
-    where: { projectId },
-  });
-  const unprocessedCommits = commitHashes.filter(
-    (commit) =>
-      !processedCommits.some(
-        (processedCommits) => processedCommits.commitHash === commit.commitHash
-      )
-  );
+// async function filterUnprocessedCommits(
+//   projectId: string,
+//   commitHashes: Response[]
+// ) {
+//   const processedCommits = await db.commit.findMany({
+//     where: { projectId },
+//   });
+//   const unprocessedCommits = commitHashes.filter(
+//     (commit) =>
+//       !processedCommits.some(
+//         (processedCommits) => processedCommits.commitHash === commit.commitHash
+//       )
+//   );
 
-  return unprocessedCommits;
-}
+//   return unprocessedCommits;
+// }
 
 async function summariseCommit(githubUrl: string, commitHash: string) {}
 
