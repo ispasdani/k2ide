@@ -7,6 +7,7 @@ import React from "react";
 
 const Dashboard = () => {
   const { project } = useProjects();
+  console.log(project);
 
   return (
     <div>
