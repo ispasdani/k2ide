@@ -24,8 +24,8 @@ export const getCommitHashes = async (
   const [owner, repo] = githubUrl.split("/").slice(-2);
 
   const { data } = await octokit.rest.repos.listCommits({
-    owner: "ispasdani",
-    repo: "gitnius-app",
+    owner: owner,
+    repo: repo,
   });
 
   // Map the raw GitHub API data to the Response type
