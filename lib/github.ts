@@ -9,40 +9,63 @@ export const octokit = new Octokit({
 const githubUrl: string = "https://github.com/ispasdani/gitnius-app";
 
 // Define the Response type as per your original intention
-type Response = {
+export type Response = {
   commitHash: string;
   commitMessage: string;
   commitAuthorName: string;
   commitAuthorAvatar: string;
   commitDate: string;
+  diff?: string; // Raw diff text (optional)
+  files?: { filename: string; patch?: string }[]; // Changed files (optional)
 };
 
 // Define the function with proper TypeScript typing
 export const getCommitHashes = async (
   githubUrl: string
 ): Promise<Response[]> => {
-  const [owner, repo] = githubUrl.split("/").slice(-2);
+  // Extract owner and repo from githubUrl (optional improvement)
+  const url = new URL(githubUrl);
+  const [, owner, repo] = url.pathname.split("/");
 
-  const { data } = await octokit.rest.repos.listCommits({
-    owner: owner,
-    repo: repo,
+  // Step 1: Get the list of commits
+  const { data: commitsData } = await octokit.rest.repos.listCommits({
+    owner,
+    repo,
+    per_page: 10, // Limit to 10 commits for performance (adjust as needed)
   });
 
-  // Map the raw GitHub API data to the Response type
-  const commits: Response[] = data.map((commit: any) => ({
-    commitHash: commit.sha,
-    commitMessage: commit.commit.message,
-    commitAuthorName: commit.commit.author.name,
-    commitAuthorAvatar: commit.author?.avatar_url || "", // Fallback for null author
-    commitDate: commit.commit.author.date,
-  }));
+  // Step 2: Map initial commit metadata
+  const commits: Response[] = await Promise.all(
+    commitsData.map(async (commit: any) => {
+      // Step 3: Fetch detailed commit data including diff
+      const { data: commitDetails } = await octokit.rest.repos.getCommit({
+        owner,
+        repo,
+        ref: commit.sha,
+      });
 
-  // Sort commits by commitDate in descending order (most recent first)
-  commits.sort((a: Response, b: Response) => {
-    return new Date(b.commitDate).getTime() - new Date(a.commitDate).getTime();
-  });
+      return {
+        commitHash: commit.sha,
+        commitMessage: commit.commit.message,
+        commitAuthorName: commit.commit.author.name,
+        commitAuthorAvatar: commit.author?.avatar_url || "",
+        commitDate: commit.commit.author.date,
+        diff: commitDetails.files?.map((file: any) => file.patch).join("\n"), // Combine patches
+        files: commitDetails.files?.map((file: any) => ({
+          filename: file.filename,
+          patch: file.patch || "No diff available",
+        })),
+      };
+    })
+  );
 
-  return commits; // Return the mapped data instead of logging it
+  // Step 4: Sort by commitDate (most recent first)
+  commits.sort(
+    (a, b) =>
+      new Date(b.commitDate).getTime() - new Date(a.commitDate).getTime()
+  );
+
+  return commits;
 };
 
 // Execute the function and log the result
