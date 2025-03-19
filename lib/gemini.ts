@@ -5,6 +5,8 @@ const model = genAI.getGenerativeModel({
   model: "gemini-1.5-flash",
 });
 
+// export const
+
 export const summariseCommit = async (commitMessage: string) => {
   const response = await model.generateContent([
     `You are an expert programmer, and you are trying to summarize a git diff.
