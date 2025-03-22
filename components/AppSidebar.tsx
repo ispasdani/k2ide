@@ -26,7 +26,6 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { usePathname } from "next/navigation";
 import { Button } from "./ui/button";
-import Image from "next/image";
 import LogoSvg from "@/svgs/LogoSvg";
 import { useProjects } from "@/hooks/useProjects";
 
@@ -42,13 +41,13 @@ const items = [
     icon: LayoutDashboard,
   },
   {
-    title: "Q&A",
-    url: "/qa",
+    title: "K2 AI",
+    url: "/k2ai",
     icon: Bot,
   },
   {
-    title: "AI Code Editor",
-    url: "/gitnius-editor",
+    title: "K2 Code Editor",
+    url: "/k2-editor",
     icon: Code,
   },
   {

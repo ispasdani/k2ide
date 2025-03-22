@@ -2,7 +2,7 @@
 
 import { useProjects } from "@/hooks/useProjects";
 import { getCommitHashes, Response } from "@/lib/github";
-import { ExternalLink, Github } from "lucide-react";
+import { ExternalLink, GitCommitVertical, Github } from "lucide-react";
 import Link from "next/link";
 import React, { useState } from "react";
 import {
@@ -113,8 +113,9 @@ const Dashboard = () => {
         {commits.length === 0 && !loading && !error && (
           <button
             onClick={fetchCommits}
-            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+            className="flex mt-2 pl-2 pr-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer"
           >
+            <GitCommitVertical />
             Get Repository Commits
           </button>
         )}
