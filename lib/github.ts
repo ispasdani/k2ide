@@ -1,5 +1,3 @@
-import { api } from "@/convex/_generated/api";
-import { useQuery } from "convex/react";
 import { Octokit } from "octokit";
 
 export const octokit = new Octokit({
