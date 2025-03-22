@@ -62,18 +62,6 @@ const items = [
   },
 ];
 
-const projects = [
-  {
-    name: "Project1",
-  },
-  {
-    name: "Project2",
-  },
-  {
-    name: "project3",
-  },
-];
-
 const AppSidebar = () => {
   const pathname = usePathname();
   const { open } = useSidebar();

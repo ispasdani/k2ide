@@ -1,5 +1,5 @@
 import AppSidebar from "@/components/AppSidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { UserButton } from "@clerk/nextjs";
 import React from "react";
 
@@ -14,6 +14,7 @@ const SidebarLayout = ({ children }: SidebarLayoutProps) => {
 
       <main className="w-full">
         <div className="h-[5vh] flex items-center gap-2 border-sidebar-border bg-sidebar border p-2">
+          <SidebarTrigger className="cursor-pointer" />
           {/* <SearchBar /> */}
           <div className="ml-auto"></div>
           <UserButton />
