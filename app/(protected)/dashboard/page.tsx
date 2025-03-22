@@ -1,7 +1,7 @@
 "use client";
 
 import { useProjects } from "@/hooks/useProjects";
-import { getCommitHashes, Response } from "@/lib/github";
+import { fetchAndSaveNewCommits, Commit } from "@/lib/commits";
 import { ExternalLink, GitCommitVertical, Github } from "lucide-react";
 import Link from "next/link";
 import React, { useState } from "react";
@@ -11,69 +11,68 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useMutation, useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import { FileChange } from "@/lib/github";
 
 const COMMITS_PER_PAGE = 5;
 
 const Dashboard = () => {
   const { project } = useProjects();
-  const [commits, setCommits] = useState<Response[]>([]);
-  const [currentPage, setCurrentPage] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState<boolean>(true);
+  const [displayPage, setDisplayPage] = useState<number>(1);
 
-  console.log("Project:", project);
+  const saveCommitsMutation = useMutation(api.commits.saveCommits);
+  const savedCommits = useQuery(
+    api.commits.getCommitsByProject,
+    project?._id ? { projectId: project._id as Id<"project"> } : "skip"
+  ) as Commit[] | undefined; // Explicitly type as Commit[]
 
-  const fetchCommits = async () => {
+  const handleFetchCommits = async () => {
+    if (!project?.githubUrl || !project?._id) {
+      setError("Missing GitHub URL or project ID.");
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setError(null); // Clear previous errors
-      const commitData = await getCommitHashes(
-        project?.githubUrl || "",
-        currentPage,
+      await fetchAndSaveNewCommits(
+        project.githubUrl,
+        project._id as Id<"project">,
+        savedCommits,
+        saveCommitsMutation,
         COMMITS_PER_PAGE
       );
-      setCommits((prevCommits) =>
-        currentPage === 1 ? commitData : [...prevCommits, ...commitData]
-      );
-      setHasMore(commitData.length === COMMITS_PER_PAGE);
     } catch (err: any) {
-      console.error("Error fetching commits:", err);
-      if (
-        err.status === 429 ||
-        err.response?.data?.message?.includes("rate limit")
-      ) {
-        setError(
-          "GitHub API rate limit exceeded. Please wait and try again later."
-        );
-      } else if (err.status === 403) {
-        setError("Forbidden: Check GitHub token or repo access.");
-      } else {
-        setError("Failed to load commits.");
-      }
+      setError(err.message);
     } finally {
-      setLoading(false); // Always reset loading, even on error
+      setLoading(false);
     }
   };
 
+  const paginatedCommits = savedCommits
+    ? savedCommits.slice(0, displayPage * COMMITS_PER_PAGE)
+    : [];
+  const canShowLess = paginatedCommits.length > COMMITS_PER_PAGE;
+  const hasMore = (savedCommits?.length || 0) > paginatedCommits.length;
+
   const handleShowMore = () => {
-    setCurrentPage((prev) => prev + 1);
-    fetchCommits();
+    setDisplayPage((prev) => prev + 1);
   };
 
   const handleShowLess = () => {
-    if (commits.length > COMMITS_PER_PAGE) {
-      setCommits((prev) => prev.slice(0, -COMMITS_PER_PAGE));
-      setCurrentPage((prev) => prev - 1);
+    if (paginatedCommits.length > COMMITS_PER_PAGE) {
+      setDisplayPage((prev) => prev - 1);
     }
   };
-
-  const canShowLess = commits.length > COMMITS_PER_PAGE;
 
   return (
     <div>
       <div className="flex items-center justify-between flex-wrap gap-y-4">
-        {/* Github Link */}
         <div className="w-fit rounded-md bg-primary px-4 py-3">
           <div className="flex items-center">
             <Github className="size-5 text-white" />
@@ -109,10 +108,9 @@ const Dashboard = () => {
       <div className="mt-8">
         <h2 className="text-lg font-semibold">Recent Commits</h2>
 
-        {/* Button to Trigger Fetch */}
-        {commits.length === 0 && !loading && !error && (
+        {(!savedCommits || savedCommits.length === 0) && !loading && !error && (
           <button
-            onClick={fetchCommits}
+            onClick={handleFetchCommits}
             className="flex mt-2 pl-2 pr-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 cursor-pointer"
           >
             <GitCommitVertical />
@@ -120,17 +118,26 @@ const Dashboard = () => {
           </button>
         )}
 
-        {/* Loading State */}
-        {loading && <p>Loading commits...</p>}
+        {savedCommits && savedCommits.length > 0 && !loading && !error && (
+          <button
+            onClick={handleFetchCommits}
+            className="flex mt-2 pl-2 pr-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 cursor-pointer"
+          >
+            <GitCommitVertical />
+            Update Commits
+          </button>
+        )}
 
-        {/* Error State */}
+        {loading && <p>Loading commits...</p>}
         {error && <p className="text-red-500">{error}</p>}
 
-        {/* Commits Display */}
-        {!loading && !error && commits.length > 0 && (
+        {!loading && !error && paginatedCommits.length > 0 && (
           <ul className="mt-2 space-y-4">
-            {commits.map((commit) => (
-              <li key={commit.commitHash} className="border p-4 rounded-md">
+            {paginatedCommits.map((commit) => (
+              <li
+                key={commit.commitHash}
+                className="border p-4 rounded-md bg-sidebar"
+              >
                 <p>
                   <strong>{commit.commitMessage}</strong> by{" "}
                   {commit.commitAuthorName}
@@ -149,23 +156,27 @@ const Dashboard = () => {
                 {commit.files && commit.files.length > 0 ? (
                   <Accordion type="single" collapsible className="mt-2">
                     <AccordionItem value={commit.commitHash}>
-                      <AccordionTrigger>
+                      <AccordionTrigger className="p-0">
                         {commit.files.length > 1 ? "Commits" : "Commit"} (
                         {commit.files.length} file
                         {commit.files.length > 1 ? "s" : ""})
                       </AccordionTrigger>
                       <AccordionContent>
                         <ul className="ml-4 list-disc text-sm text-gray-700">
-                          {commit.files.map((file, index) => (
-                            <li key={index}>
-                              <span className="font-mono">{file.filename}</span>
-                              {file.patch && (
-                                <pre className="mt-1 p-2 bg-gray-100 rounded-md text-xs overflow-auto">
-                                  {file.patch}
-                                </pre>
-                              )}
-                            </li>
-                          ))}
+                          {commit.files.map(
+                            (file: FileChange, index: number) => (
+                              <li key={index}>
+                                <span className="font-mono">
+                                  {file.filename}
+                                </span>
+                                {file.patch && (
+                                  <pre className="mt-1 p-2 bg-gray-100 rounded-md text-xs overflow-x-auto">
+                                    {file.patch}
+                                  </pre>
+                                )}
+                              </li>
+                            )
+                          )}
                         </ul>
                       </AccordionContent>
                     </AccordionItem>
@@ -180,8 +191,7 @@ const Dashboard = () => {
           </ul>
         )}
 
-        {/* Pagination Buttons */}
-        {!loading && !error && commits.length > 0 && (
+        {!loading && !error && paginatedCommits.length > 0 && (
           <div className="mt-4 flex justify-between">
             <button
               onClick={handleShowLess}

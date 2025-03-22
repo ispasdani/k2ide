@@ -8,15 +8,20 @@ export const octokit = new Octokit({
 
 const githubUrl: string = "https://github.com/ispasdani/gitnius-app";
 
+export type FileChange = {
+  filename: string;
+  patch?: string;
+};
+
 // Define the Response type as per your original intention
 export type Response = {
   commitHash: string;
   commitMessage: string;
   commitAuthorName: string;
-  commitAuthorAvatar: string;
+  commitAuthorAvatar: string; // GitHub always returns this, but we'll handle undefined in Convex
   commitDate: string;
-  diff?: string; // Raw diff text (optional)
-  files?: { filename: string; patch?: string }[]; // Changed files (optional)
+  diff?: string;
+  files?: FileChange[];
 };
 
 // Define the function with proper TypeScript typing
@@ -27,10 +32,6 @@ export const getCommitHashes = async (
 ): Promise<Response[]> => {
   const url = new URL(githubUrl);
   const [, owner, repo] = url.pathname.split("/");
-
-  console.log("githubUrl:", githubUrl);
-
-  console.log("owner:", owner, "repo:", repo);
 
   // Fetch commits with pagination
   const { data: commitsData } = await octokit.rest.repos.listCommits({

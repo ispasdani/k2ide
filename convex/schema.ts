@@ -44,4 +44,21 @@ export default defineSchema({
     // Keys are emails (v.string()) and values are roles (v.string())
     sharedWith: v.record(v.string(), v.string()),
   }),
+  commits: defineTable({
+    projectId: v.id("project"), // Links to the project table's _id
+    commitHash: v.string(), // Unique identifier for the commit
+    commitMessage: v.string(), // Commit message
+    commitAuthorName: v.string(), // Author’s name
+    commitAuthorAvatar: v.optional(v.string()), // Avatar URL (optional)
+    commitDate: v.string(), // ISO date string
+    diff: v.optional(v.string()), // Raw diff text (optional)
+    files: v.optional(
+      v.array(
+        v.object({
+          filename: v.string(), // Name of the changed file
+          patch: v.optional(v.string()), // Diff patch for the file (optional)
+        })
+      )
+    ), // Array of file changes (optional)
+  }).index("by_projectId", ["projectId"]), // Index for querying commits by project
 });
