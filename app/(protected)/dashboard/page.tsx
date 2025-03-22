@@ -1,38 +1,74 @@
 "use client";
 
 import { useProjects } from "@/hooks/useProjects";
-import { getCommitHashes, Response } from "@/lib/github"; // Import Response type
+import { getCommitHashes, Response } from "@/lib/github";
 import { ExternalLink, Github } from "lucide-react";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
-const githubUrl: string = "https://github.com/ispasdani/gitnius-app";
+const COMMITS_PER_PAGE = 5;
 
 const Dashboard = () => {
   const { project } = useProjects();
   const [commits, setCommits] = useState<Response[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState<boolean>(true);
 
   console.log("Project:", project);
 
-  useEffect(() => {
-    const fetchCommits = async () => {
-      try {
-        const commitData = await getCommitHashes(
-          project?.githubUrl || githubUrl
+  const fetchCommits = async () => {
+    try {
+      setLoading(true);
+      setError(null); // Clear previous errors
+      const commitData = await getCommitHashes(
+        project?.githubUrl || "",
+        currentPage,
+        COMMITS_PER_PAGE
+      );
+      setCommits((prevCommits) =>
+        currentPage === 1 ? commitData : [...prevCommits, ...commitData]
+      );
+      setHasMore(commitData.length === COMMITS_PER_PAGE);
+    } catch (err: any) {
+      console.error("Error fetching commits:", err);
+      if (
+        err.status === 429 ||
+        err.response?.data?.message?.includes("rate limit")
+      ) {
+        setError(
+          "GitHub API rate limit exceeded. Please wait and try again later."
         );
-        setCommits(commitData);
-      } catch (err) {
-        console.error("Error fetching commits:", err);
-        setError("Failed to load commits");
-      } finally {
-        setLoading(false);
+      } else if (err.status === 403) {
+        setError("Forbidden: Check GitHub token or repo access.");
+      } else {
+        setError("Failed to load commits.");
       }
-    };
+    } finally {
+      setLoading(false); // Always reset loading, even on error
+    }
+  };
 
+  const handleShowMore = () => {
+    setCurrentPage((prev) => prev + 1);
     fetchCommits();
-  }, [project?.githubUrl]);
+  };
+
+  const handleShowLess = () => {
+    if (commits.length > COMMITS_PER_PAGE) {
+      setCommits((prev) => prev.slice(0, -COMMITS_PER_PAGE));
+      setCurrentPage((prev) => prev - 1);
+    }
+  };
+
+  const canShowLess = commits.length > COMMITS_PER_PAGE;
 
   return (
     <div>
@@ -72,9 +108,24 @@ const Dashboard = () => {
 
       <div className="mt-8">
         <h2 className="text-lg font-semibold">Recent Commits</h2>
+
+        {/* Button to Trigger Fetch */}
+        {commits.length === 0 && !loading && !error && (
+          <button
+            onClick={fetchCommits}
+            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+          >
+            Get Repository Commits
+          </button>
+        )}
+
+        {/* Loading State */}
         {loading && <p>Loading commits...</p>}
+
+        {/* Error State */}
         {error && <p className="text-red-500">{error}</p>}
-        {!loading && !error && commits.length === 0 && <p>No commits found.</p>}
+
+        {/* Commits Display */}
         {!loading && !error && commits.length > 0 && (
           <ul className="mt-2 space-y-4">
             {commits.map((commit) => (
@@ -94,23 +145,30 @@ const Dashboard = () => {
                     {commit.commitHash.substring(0, 7)}
                   </a>
                 </p>
-                {/* Display file changes */}
                 {commit.files && commit.files.length > 0 ? (
-                  <div className="mt-2">
-                    <p className="text-sm font-medium">Changes:</p>
-                    <ul className="ml-4 list-disc text-sm text-gray-700">
-                      {commit.files.map((file, index) => (
-                        <li key={index}>
-                          <span className="font-mono">{file.filename}</span>
-                          {file.patch && (
-                            <pre className="mt-1 p-2 bg-gray-100 rounded-md text-xs overflow-auto">
-                              {file.patch}
-                            </pre>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
+                  <Accordion type="single" collapsible className="mt-2">
+                    <AccordionItem value={commit.commitHash}>
+                      <AccordionTrigger>
+                        {commit.files.length > 1 ? "Commits" : "Commit"} (
+                        {commit.files.length} file
+                        {commit.files.length > 1 ? "s" : ""})
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <ul className="ml-4 list-disc text-sm text-gray-700">
+                          {commit.files.map((file, index) => (
+                            <li key={index}>
+                              <span className="font-mono">{file.filename}</span>
+                              {file.patch && (
+                                <pre className="mt-1 p-2 bg-gray-100 rounded-md text-xs overflow-auto">
+                                  {file.patch}
+                                </pre>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
                 ) : (
                   <p className="text-sm text-gray-500 mt-2">
                     No file changes available.
@@ -119,6 +177,34 @@ const Dashboard = () => {
               </li>
             ))}
           </ul>
+        )}
+
+        {/* Pagination Buttons */}
+        {!loading && !error && commits.length > 0 && (
+          <div className="mt-4 flex justify-between">
+            <button
+              onClick={handleShowLess}
+              disabled={!canShowLess}
+              className={`px-4 py-2 rounded-md ${
+                canShowLess
+                  ? "bg-blue-500 text-white hover:bg-blue-600"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              Show Less
+            </button>
+            <button
+              onClick={handleShowMore}
+              disabled={!hasMore || loading}
+              className={`px-4 py-2 rounded-md ${
+                hasMore && !loading
+                  ? "bg-blue-500 text-white hover:bg-blue-600"
+                  : "bg-gray-300 text-gray-500 cursor-not-allowed"
+              }`}
+            >
+              Show More
+            </button>
+          </div>
         )}
       </div>
     </div>

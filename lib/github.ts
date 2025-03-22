@@ -21,23 +21,28 @@ export type Response = {
 
 // Define the function with proper TypeScript typing
 export const getCommitHashes = async (
-  githubUrl: string
+  githubUrl: string,
+  page: number = 1, // Default to page 1
+  perPage: number = 5 // Default to 5 commits per page
 ): Promise<Response[]> => {
-  // Extract owner and repo from githubUrl (optional improvement)
   const url = new URL(githubUrl);
   const [, owner, repo] = url.pathname.split("/");
 
-  // Step 1: Get the list of commits
+  console.log("githubUrl:", githubUrl);
+
+  console.log("owner:", owner, "repo:", repo);
+
+  // Fetch commits with pagination
   const { data: commitsData } = await octokit.rest.repos.listCommits({
     owner,
     repo,
-    per_page: 10, // Limit to 10 commits for performance (adjust as needed)
+    page, // GitHub API page number (1-based)
+    per_page: perPage, // Number of commits per page
   });
 
-  // Step 2: Map initial commit metadata
+  // Map commits and fetch details
   const commits: Response[] = await Promise.all(
     commitsData.map(async (commit: any) => {
-      // Step 3: Fetch detailed commit data including diff
       const { data: commitDetails } = await octokit.rest.repos.getCommit({
         owner,
         repo,
@@ -50,7 +55,7 @@ export const getCommitHashes = async (
         commitAuthorName: commit.commit.author.name,
         commitAuthorAvatar: commit.author?.avatar_url || "",
         commitDate: commit.commit.author.date,
-        diff: commitDetails.files?.map((file: any) => file.patch).join("\n"), // Combine patches
+        diff: commitDetails.files?.map((file: any) => file.patch).join("\n"),
         files: commitDetails.files?.map((file: any) => ({
           filename: file.filename,
           patch: file.patch || "No diff available",
@@ -59,7 +64,7 @@ export const getCommitHashes = async (
     })
   );
 
-  // Step 4: Sort by commitDate (most recent first)
+  // Sort by commitDate (most recent first)
   commits.sort(
     (a, b) =>
       new Date(b.commitDate).getTime() - new Date(a.commitDate).getTime()
