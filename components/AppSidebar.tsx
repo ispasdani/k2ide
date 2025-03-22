@@ -81,7 +81,7 @@ const AppSidebar = () => {
   const { projects, projectId, setProjectId } = useProjects();
 
   return (
-    <Sidebar collapsible="icon" variant="floating">
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center justify-start">
           <LogoSvg className="w-[24px] h-[24px] m-2" />
