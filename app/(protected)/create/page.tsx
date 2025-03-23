@@ -11,7 +11,7 @@ import { useMutation } from "convex/react";
 import { FormInput } from "./types";
 import { api } from "@/convex/_generated/api";
 import { toast } from "sonner";
-import LoadingSpinner from "@/components/LoadingSpinner";
+import LoadingSpinner from "@/components/generalComponents/LoadingSpinner";
 
 const CreatePage = () => {
   // Get the user's authentication state.

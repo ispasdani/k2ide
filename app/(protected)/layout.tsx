@@ -1,4 +1,4 @@
-import AppSidebar from "@/components/AppSidebar";
+import AppSidebar from "@/components/generalComponents/Sidebar/AppSidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { UserButton } from "@clerk/nextjs";
 import React from "react";

@@ -42,12 +42,14 @@ export const saveCommits = mutation({
 
 export const getCommitsByProject = query({
   args: { projectId: v.id("project") },
+
   handler: async (ctx, args) => {
     const commits = await ctx.db
       .query("commits")
       .withIndex("by_projectId", (q) => q.eq("projectId", args.projectId))
       .order("desc") // Sort by _creationTime (or add a commitDate index if needed)
       .collect();
+
     return commits;
   },
 });
