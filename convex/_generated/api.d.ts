@@ -16,6 +16,7 @@ import type {
 import type * as commits from "../commits.js";
 import type * as http from "../http.js";
 import type * as projects from "../projects.js";
+import type * as repoDocuments from "../repoDocuments.js";
 import type * as users from "../users.js";
 
 /**
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   commits: typeof commits;
   http: typeof http;
   projects: typeof projects;
+  repoDocuments: typeof repoDocuments;
   users: typeof users;
 }>;
 export declare const api: FilterApi<

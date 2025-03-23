@@ -16,6 +16,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { FileChange } from "@/lib/github";
 import ProjectLinked from "@/components/generalComponents/ProjectLinked";
 import { useCommitsStore } from "@/store/commitStore";
+import AskQuestionCard from "@/components/k2ProjectAIComponents/AskQuestionCard";
 
 const COMMITS_PER_PAGE = 5;
 
@@ -102,9 +103,12 @@ const K2ProjectAI = () => {
       </div>
 
       <div className="mt-4">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-5">
-          {/* AskQuestionCard */}
-        </div>
+        {project && (
+          <AskQuestionCard
+            githubUrl={project.githubUrl}
+            projectId={project._id}
+          />
+        )}
       </div>
 
       <div className="mt-8">
