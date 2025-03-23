@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { GithubRepoLoader } from "@langchain/community/document_loaders/web/github";
 import {
   GoogleGenerativeAI,
   HarmBlockThreshold,
@@ -10,7 +9,7 @@ import {
 import { RunnableSequence } from "@langchain/core/runnables";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
@@ -26,99 +25,43 @@ const AskQuestionCard = ({
   const [loading, setLoading] = useState(false);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const [analysisFeedback, setAnalysisFeedback] = useState<string | null>(null); // New state for feedback
 
   const saveDocument = useMutation(api.repoDocuments.saveDocument);
   const documents = useQuery(api.repoDocuments.getDocumentsByProject, {
     projectId,
   });
+  const analyzeRepo = useAction(api.analyzeRepo.analyzeRepo);
   const genAI = new GoogleGenerativeAI(
     process.env.NEXT_PUBLIC_GOOGLE_GEMINI_API_KEY || ""
   );
 
   const handleAnalyzeProject = async () => {
-    if (documents && documents.length > 0) return;
+    if (documents && documents.length > 0) {
+      setAnalysisFeedback(
+        `Analyzed ${documents.length}/${documents.length} files`
+      );
+      return;
+    }
 
     setAnalysisLoading(true);
     setAnalysisError(null);
+    setAnalysisFeedback(null);
 
     try {
-      const loader = new GithubRepoLoader(githubUrl, {
-        branch: "main",
-        recursive: true,
-        accessToken: process.env.NEXT_PUBLIC_GITHUB_TOKEN,
-        ignoreFiles: [
-          "package.json",
-          "package-lock.json",
-          "node_modules/**",
-          "postcss.config.mjs",
-          "tailwind.config.ts",
-          "*.md",
-          "*.lock",
-          "*.config.js",
-          "*.config.ts",
-        ],
-      });
-      const docs = await loader.load();
-
-      const model = genAI.getGenerativeModel({ model: "embedding-001" });
-      const MAX_BYTES = 30000;
-
-      const relevantDocs = docs.filter((doc) =>
-        /\/(components|src|app|hooks|convex|lib|utils|pages|_app|_document)\//i.test(
-          doc.metadata.source
-        )
+      const result = await analyzeRepo({
+        githubUrl,
+        projectId,
+        maxEntries: 100,
+      }); // Pass maxEntries
+      setAnalysisFeedback(
+        `Analyzed ${result.savedEntries}/${result.totalFiles} files`
       );
-
-      for (const doc of relevantDocs) {
-        const encoder = new TextEncoder();
-        const contentBytes = encoder.encode(doc.pageContent);
-
-        if (contentBytes.length <= MAX_BYTES) {
-          const embeddingResult = await model.embedContent(doc.pageContent);
-          const embedding = embeddingResult.embedding.values;
-          await saveDocument({
-            projectId,
-            filePath: doc.metadata.source,
-            pageContent: doc.pageContent,
-            metadata: { source: githubUrl },
-            embedding,
-          });
-        } else {
-          const chunks = [];
-          let start = 0;
-          while (start < contentBytes.length) {
-            const end = Math.min(start + MAX_BYTES, contentBytes.length);
-            const chunkBytes = contentBytes.slice(start, end);
-            const chunkContent = new TextDecoder().decode(chunkBytes);
-            chunks.push(chunkContent);
-            start = end;
-          }
-
-          for (let i = 0; i < chunks.length; i++) {
-            const chunk = chunks[i];
-            const embeddingResult = await model.embedContent(chunk);
-            const embedding = embeddingResult.embedding.values;
-            await saveDocument({
-              projectId,
-              filePath: `${doc.metadata.source}_chunk_${i + 1}`,
-              pageContent: chunk,
-              metadata: {
-                source: githubUrl,
-                chunk: `${i + 1}/${chunks.length}`,
-              },
-              embedding,
-            });
-          }
-          console.log(
-            `Split ${doc.metadata.source} into ${chunks.length} chunks`
-          );
-        }
-      }
     } catch (error: any) {
       console.error("Error analyzing repo:", error);
       setAnalysisError(
         error.message.includes("rate limit")
-          ? "GitHub API rate limit exceeded. Please add a GitHub token in your environment variables."
+          ? "GitHub API rate limit exceeded. Please ensure a GitHub token is set in Convex."
           : "Failed to analyze the repository. Please try again."
       );
     } finally {
@@ -199,7 +142,7 @@ const AskQuestionCard = ({
     }
   };
 
-  const isAnalyzed = documents && documents.length > 0; // Explicit check for documents
+  const isAnalyzed = documents && documents.length > 0;
 
   return (
     <div className="p-4 border rounded-md bg-white shadow-sm">
@@ -216,6 +159,9 @@ const AskQuestionCard = ({
         >
           {analysisLoading ? "Analyzing..." : "Let AI Analyze Your Project"}
         </button>
+      )}
+      {analysisFeedback && (
+        <p className="text-gray-600 mb-2">{analysisFeedback}</p>
       )}
       {analysisError && <p className="text-red-500 mb-2">{analysisError}</p>}
       <textarea
