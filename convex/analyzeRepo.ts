@@ -13,7 +13,7 @@ interface GitTreeItem {
 
 interface FileContent {
   type: "file";
-  content: string; // Base64-encoded
+  content: string;
   encoding: "base64";
   path: string;
   sha: string;
@@ -43,7 +43,15 @@ export const analyzeRepo = action({
 
     const files = (tree.tree as GitTreeItem[])
       .filter((item) => item.type === "blob" && item.path)
-      .slice(0, 50);
+      .filter((item) =>
+        /^(package\.json|src\/|app\/|components\/|hooks\/|lib\/|utils\/|pages\/|_app|_document)/i.test(
+          item.path!
+        )
+      )
+      .filter(
+        (item) => !/node_modules|\.(lock|md|config\.[jt]s)$/i.test(item.path!)
+      )
+      .slice(0, 100); // Up to 100 files
 
     let savedFiles = 0;
     for (const file of files) {
@@ -60,7 +68,7 @@ export const analyzeRepo = action({
         "content" in content
       ) {
         const base64Content = (content as FileContent).content;
-        const fileContent = atob(base64Content); // Decode Base64 to string
+        const fileContent = atob(base64Content);
 
         await ctx.runMutation(api.repoFiles.saveFile, {
           projectId: args.projectId,
