@@ -13,11 +13,11 @@ import type {
   FilterApi,
   FunctionReference,
 } from "convex/server";
-import type * as analyzeRepo from "../analyzeRepo.js";
+import type * as analyzerepo from "../analyzerepo.js";
 import type * as commits from "../commits.js";
 import type * as http from "../http.js";
 import type * as projects from "../projects.js";
-import type * as repoDocuments from "../repoDocuments.js";
+import type * as repoFiles from "../repoFiles.js";
 import type * as users from "../users.js";
 
 /**
@@ -29,11 +29,11 @@ import type * as users from "../users.js";
  * ```
  */
 declare const fullApi: ApiFromModules<{
-  analyzeRepo: typeof analyzeRepo;
+  analyzerepo: typeof analyzerepo;
   commits: typeof commits;
   http: typeof http;
   projects: typeof projects;
-  repoDocuments: typeof repoDocuments;
+  repoFiles: typeof repoFiles;
   users: typeof users;
 }>;
 export declare const api: FilterApi<

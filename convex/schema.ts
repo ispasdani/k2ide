@@ -61,22 +61,12 @@ export default defineSchema({
       )
     ), // Array of file changes (optional)
   }).index("by_projectId", ["projectId"]), // Index for querying commits by project
-  // New table for repo documents
-  repoDocuments: defineTable({
+  repoFiles: defineTable({
     projectId: v.id("project"),
-    filePath: v.string(), // e.g., "src/index.js"
-    pageContent: v.string(), // File content
+    filePath: v.string(),
+    content: v.string(),
     metadata: v.object({
       source: v.string(),
-      chunk: v.optional(v.string()), // Add optional chunk field
-    }), // GitHub URL or other metadata
-  })
-    .index("by_projectId", ["projectId"])
-    .index("by_projectId_filePath", ["projectId", "filePath"]),
-
-  // New table for embeddings
-  embeddings: defineTable({
-    documentId: v.id("repoDocuments"),
-    embedding: v.array(v.float64()), // Gemini embedding vector (e.g., 768 dimensions)
-  }).index("by_documentId", ["documentId"]),
+    }),
+  }).index("by_projectId", ["projectId"]),
 });

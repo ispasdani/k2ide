@@ -1,122 +1,77 @@
-// convex/analyzeRepo.ts
 import { v } from "convex/values";
 import { action } from "./_generated/server";
-import { GithubRepoLoader } from "@langchain/community/document_loaders/web/github";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { api } from "./_generated/api";
+import { Octokit } from "@octokit/rest";
 
-export const analyzeRepo: any = action({
+interface GitTreeItem {
+  path?: string;
+  type?: "blob" | "tree" | "commit";
+  sha?: string;
+  size?: number;
+  url?: string;
+}
+
+interface FileContent {
+  type: "file";
+  content: string; // Base64-encoded
+  encoding: "base64";
+  path: string;
+  sha: string;
+  size: number;
+  url: string;
+}
+
+export const analyzeRepo = action({
   args: {
     githubUrl: v.string(),
     projectId: v.id("project"),
-    maxEntries: v.optional(v.number()), // Optional argument to adjust limit
+    branch: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const existingDocs = await ctx.runQuery(
-      api.repoDocuments.getDocumentsByProject,
-      {
-        projectId: args.projectId,
-      }
-    );
-    if (existingDocs.length > 0)
-      return {
-        savedEntries: existingDocs.length,
-        totalFiles: existingDocs.length,
-      };
+    const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+    const [owner, repo] = args.githubUrl
+      .replace("https://github.com/", "")
+      .split("/");
+    const branch = args.branch ?? "main";
 
-    const loader = new GithubRepoLoader(args.githubUrl, {
-      branch: "main",
-      recursive: true,
-      accessToken: process.env.GITHUB_TOKEN,
-      ignoreFiles: [
-        "package.json",
-        "package-lock.json",
-        "node_modules/**",
-        "postcss.config.mjs",
-        "tailwind.config.ts",
-        "*.md",
-        "*.lock",
-        "*.config.js",
-        "*.config.ts",
-      ],
+    const { data: tree } = await octokit.git.getTree({
+      owner,
+      repo,
+      tree_sha: branch,
+      recursive: "true",
     });
 
-    const docs = await loader.load();
-    const relevantDocs = docs.filter((doc) =>
-      /\/(components|src|app|hooks|convex|lib|utils|pages|_app|_document)\//i.test(
-        doc.metadata.source
-      )
-    );
+    const files = (tree.tree as GitTreeItem[])
+      .filter((item) => item.type === "blob" && item.path)
+      .slice(0, 50);
 
-    const genAI = new GoogleGenerativeAI(
-      process.env.GOOGLE_GEMINI_API_KEY || ""
-    );
-    const model = genAI.getGenerativeModel({ model: "embedding-001" });
-    const MAX_BYTES = 30000;
-    const MAX_ENTRIES = args.maxEntries ?? 100; // Default to 100 if not provided
-    let savedEntries = 0;
+    let savedFiles = 0;
+    for (const file of files) {
+      const { data: content } = await octokit.repos.getContent({
+        owner,
+        repo,
+        path: file.path!,
+        ref: branch,
+      });
 
-    for (const doc of relevantDocs) {
-      if (savedEntries >= MAX_ENTRIES) {
-        console.log(
-          `Reached maximum of ${MAX_ENTRIES} entries. Stopping analysis.`
-        );
-        break; // Exit loop but continue to return
-      }
+      if (
+        !Array.isArray(content) &&
+        content.type === "file" &&
+        "content" in content
+      ) {
+        const base64Content = (content as FileContent).content;
+        const fileContent = atob(base64Content); // Decode Base64 to string
 
-      const encoder = new TextEncoder();
-      const contentBytes = encoder.encode(doc.pageContent);
-
-      if (contentBytes.length <= MAX_BYTES) {
-        const embeddingResult = await model.embedContent(doc.pageContent);
-        const embedding = embeddingResult.embedding.values;
-        await ctx.runMutation(api.repoDocuments.saveDocument, {
+        await ctx.runMutation(api.repoFiles.saveFile, {
           projectId: args.projectId,
-          filePath: doc.metadata.source,
-          pageContent: doc.pageContent,
+          filePath: file.path!,
+          content: fileContent,
           metadata: { source: args.githubUrl },
-          embedding,
         });
-        savedEntries += 1;
-      } else {
-        const chunks = [];
-        let start = 0;
-        while (start < contentBytes.length) {
-          const end = Math.min(start + MAX_BYTES, contentBytes.length);
-          const chunkBytes = contentBytes.slice(start, end);
-          const chunkContent = new TextDecoder().decode(chunkBytes);
-          chunks.push(chunkContent);
-          start = end;
-        }
-
-        for (let i = 0; i < chunks.length; i++) {
-          if (savedEntries >= MAX_ENTRIES) {
-            console.log(
-              `Reached maximum of ${MAX_ENTRIES} entries. Stopping analysis.`
-            );
-            break; // Exit chunk loop
-          }
-          const chunk = chunks[i];
-          const embeddingResult = await model.embedContent(chunk);
-          const embedding = embeddingResult.embedding.values;
-          await ctx.runMutation(api.repoDocuments.saveDocument, {
-            projectId: args.projectId,
-            filePath: `${doc.metadata.source}_chunk_${i + 1}`,
-            pageContent: chunk,
-            metadata: {
-              source: args.githubUrl,
-              chunk: `${i + 1}/${chunks.length}`,
-            },
-            embedding,
-          });
-          savedEntries += 1;
-        }
+        savedFiles += 1;
       }
     }
 
-    console.log(
-      `Analysis completed with ${savedEntries} entries saved out of ${relevantDocs.length} relevant files.`
-    );
-    return { savedEntries, totalFiles: relevantDocs.length }; // Return feedback
+    return { savedFiles };
   },
 });
