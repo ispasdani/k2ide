@@ -19,6 +19,9 @@ const AskQuestionCard = ({
 }) => {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [relevantFiles, setRelevantFiles] = useState<
+    { filePath: string; content: string }[]
+  >([]);
   const [branch, setBranch] = useState("main");
   const [loading, setLoading] = useState(false);
   const [analysisLoading, setAnalysisLoading] = useState(false);
@@ -57,6 +60,7 @@ const AskQuestionCard = ({
     if (!question || !files || files.length === 0) return;
     setLoading(true);
     setAnswer("");
+    setRelevantFiles([]);
 
     try {
       const model = genAI.getGenerativeModel({
@@ -80,7 +84,14 @@ const AskQuestionCard = ({
       const prompt = `Answer this question based on the provided project files and your general coding knowledge:\n\nProject Files:\n${context}\n\nQuestion: ${question}`;
 
       const result = await model.generateContent(prompt);
-      setAnswer(result.response.text());
+      const answerText = result.response.text();
+      setAnswer(answerText);
+
+      // Find files whose content appears in the answer
+      const matchedFiles = files
+        .filter((file) => answerText.includes(file.content.slice(0, 50))) // Check first 50 chars for partial match
+        .map((file) => ({ filePath: file.filePath, content: file.content }));
+      setRelevantFiles(matchedFiles);
     } catch (error) {
       console.error("Error answering question:", error);
       setAnswer("Sorry, an error occurred while processing your question.");
@@ -154,7 +165,20 @@ const AskQuestionCard = ({
       {answer && (
         <div className="mt-4">
           <h4 className="font-semibold">Answer:</h4>
-          <p>{answer}</p>
+          <p className="mb-2">{answer}</p>
+          {relevantFiles.length > 0 && (
+            <div>
+              <h5 className="font-medium text-gray-700">Relevant Files:</h5>
+              {relevantFiles.map((file, index) => (
+                <div key={index} className="mt-2">
+                  <p className="text-sm text-gray-600">File: {file.filePath}</p>
+                  <pre className="bg-gray-100 p-2 rounded-md text-sm overflow-auto max-h-64">
+                    {file.content}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
