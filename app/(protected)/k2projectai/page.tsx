@@ -17,6 +17,7 @@ import { FileChange } from "@/lib/github";
 import ProjectLinked from "@/components/generalComponents/ProjectLinked";
 import { useCommitsStore } from "@/store/commitStore";
 import AskQuestionCard from "@/components/k2ProjectAIComponents/AskQuestionCard";
+import ProjectViewer from "@/components/ProjectViewer";
 
 const COMMITS_PER_PAGE = 5;
 
@@ -102,14 +103,23 @@ const K2ProjectAI = () => {
         </div>
       </div>
 
-      <div className="mt-4">
+      {project && (
+        <ProjectViewer
+          projectId={project._id}
+          project={{
+            githubUrl: project.githubUrl,
+          }}
+        />
+      )}
+
+      {/* <div className="mt-4">
         {project && (
           <AskQuestionCard
             githubUrl={project.githubUrl}
             projectId={project._id}
           />
         )}
-      </div>
+      </div> */}
 
       <div className="mt-8">
         <h2 className="text-lg font-semibold">Recent Commits</h2>

@@ -2,18 +2,20 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { Id } from "@/convex/_generated/dataModel";
+import RepositoryImporter from "./repositoryImporter";
 
-interface ProjectFile {
+// Define the type for a repository file coming from Convex.
+interface RepoFile {
   _id: string;
   projectId: string;
-  path: string; // e.g., "src/index.ts"
-  name: string; // e.g., "index.ts"
-  isDirectory: boolean;
-  content?: string; // Only for files
+  filePath: string; // e.g., "src/index.ts"
+  content: string; // File content as text
+  metadata: { source: string };
 }
 
-// Define a type for our tree nodes.
-type FileTreeNode = {
+// The type for our final UI file tree nodes.
+export type FileTreeNode = {
   name: string;
   path: string;
   isDirectory: boolean;
@@ -21,18 +23,22 @@ type FileTreeNode = {
   children?: FileTreeNode[];
 };
 
-/**
- * Build a nested file tree from a flat list of project files.
- * Assumes that file paths use "/" as separator.
- */
-function buildFileTree(files: ProjectFile[]): FileTreeNode[] {
-  // Use an object to build the tree.
-  const tree: {
-    [key: string]: FileTreeNode & { children: Record<string, FileTreeNode> };
-  } = {};
+// Internal type used during tree building.
+interface InternalFileTreeNode {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  content?: string;
+  children: Record<string, InternalFileTreeNode>;
+}
 
+/**
+ * Build a nested file tree from a flat list of repository files.
+ */
+function buildFileTree(files: RepoFile[]): FileTreeNode[] {
+  const tree: Record<string, InternalFileTreeNode> = {};
   for (const file of files) {
-    const parts = file.path.split("/");
+    const parts = file.filePath.split("/");
     let currentLevel = tree;
     let currentPath = "";
     for (let i = 0; i < parts.length; i++) {
@@ -42,34 +48,41 @@ function buildFileTree(files: ProjectFile[]): FileTreeNode[] {
         currentLevel[part] = {
           name: part,
           path: currentPath,
-          isDirectory: i < parts.length - 1 || file.isDirectory,
+          isDirectory: i < parts.length - 1,
           children: {},
         };
       }
-      if (i === parts.length - 1 && !file.isDirectory) {
-        // It is a file, so store its content.
+      if (i === parts.length - 1) {
+        // It's a file.
         currentLevel[part].isDirectory = false;
         currentLevel[part].content = file.content;
       }
       currentLevel = currentLevel[part].children;
     }
   }
-
-  // Recursively convert our object to an array.
-  function convert(level: Record<string, FileTreeNode>): FileTreeNode[] {
-    return Object.values(level).map((node) => {
-      if (node.isDirectory && node.children) {
-        return { ...node, children: convert(node.children) };
+  // Convert internal structure to FileTreeNode array.
+  function convert(
+    nodeRecord: Record<string, InternalFileTreeNode>
+  ): FileTreeNode[] {
+    return Object.values(nodeRecord).map((node) => {
+      const converted: FileTreeNode = {
+        name: node.name,
+        path: node.path,
+        isDirectory: node.isDirectory,
+        content: node.content,
+      };
+      const childKeys = Object.keys(node.children);
+      if (childKeys.length > 0) {
+        converted.children = convert(node.children);
       }
-      return node;
+      return converted;
     });
   }
   return convert(tree);
 }
 
 /**
- * Recursive component to render the file tree.
- * Clicking on a file (not a folder) will call onSelect.
+ * Recursive component to display the file tree.
  */
 interface FileTreeProps {
   nodes: FileTreeNode[];
@@ -111,47 +124,60 @@ const CodeViewer: React.FC<{ content: string }> = ({ content }) => {
 };
 
 /**
- * Main component to display the repository.
- * It queries Convex for project files, builds a file tree, and shows file content.
+ * Main component that displays the project repository.
+ * It includes the RepositoryImporter at the top.
  */
-const ProjectViewer: React.FC<{ projectId: string }> = ({ projectId }) => {
-  // Query Convex for files belonging to this project.
-  const files = useQuery(api.projects.getProjectFiles, {
-    projectId,
-  }) as ProjectFile[];
+const ProjectViewer: React.FC<{
+  projectId: string;
+  project: { githubUrl: string; githubToken?: string };
+}> = ({ projectId, project }) => {
+  // Query repoFiles for this project.
+  const repoFiles = useQuery(api.repoFiles.getRepoFiles, {
+    projectId: projectId as Id<"project">,
+  }) as RepoFile[] | null;
 
-  // State to keep track of the selected file.
+  // State for selected file.
   const [selectedFile, setSelectedFile] = useState<FileTreeNode | null>(null);
 
-  // Build a file tree structure from the flat file list.
-  const fileTree = useMemo(() => (files ? buildFileTree(files) : []), [files]);
-
-  if (!files) {
-    return <div>Loading project files...</div>;
-  }
+  // Build file tree when repoFiles are loaded.
+  const fileTree = useMemo(
+    () => (repoFiles ? buildFileTree(repoFiles) : []),
+    [repoFiles]
+  );
 
   return (
-    <div className="flex h-full">
-      {/* Sidebar: File Tree */}
-      <div className="w-1/3 border-r p-4 overflow-auto">
-        <h2 className="font-bold mb-2">File Tree</h2>
-        <FileTree nodes={fileTree} onSelect={setSelectedFile} />
-      </div>
-
-      {/* Main Panel: Code Viewer */}
-      <div className="w-2/3 p-4 overflow-auto">
-        {selectedFile ? (
-          <>
-            <h2 className="font-bold mb-2">{selectedFile.name}</h2>
-            {selectedFile.content ? (
-              <CodeViewer content={selectedFile.content} />
-            ) : (
-              <div>This item is a folder or has no viewable content.</div>
-            )}
-          </>
-        ) : (
-          <div>Select a file from the tree to view its content.</div>
-        )}
+    <div className="flex h-full flex-col">
+      {/* Repository Importer component */}
+      <RepositoryImporter
+        projectId={projectId}
+        githubUrl={project.githubUrl}
+        githubToken={project.githubToken}
+      />
+      <div className="flex flex-1">
+        {/* Sidebar: File Tree */}
+        <div className="w-1/3 border-r p-4 overflow-auto">
+          <h2 className="font-bold mb-2">File Tree</h2>
+          {repoFiles && repoFiles.length > 0 ? (
+            <FileTree nodes={fileTree} onSelect={setSelectedFile} />
+          ) : (
+            <div>No repository files found. Click the importer above.</div>
+          )}
+        </div>
+        {/* Main Panel: Code Viewer */}
+        <div className="w-2/3 p-4 overflow-auto">
+          {selectedFile ? (
+            <>
+              <h2 className="font-bold mb-2">{selectedFile.name}</h2>
+              {selectedFile.content ? (
+                <CodeViewer content={selectedFile.content} />
+              ) : (
+                <div>This is a folder or has no viewable content.</div>
+              )}
+            </>
+          ) : (
+            <div>Select a file from the tree to view its content.</div>
+          )}
+        </div>
       </div>
     </div>
   );
