@@ -1,3 +1,4 @@
+// File: schema/convex.ts
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
@@ -60,13 +61,13 @@ export default defineSchema({
         })
       )
     ), // Array of file changes (optional)
-  }).index("by_projectId", ["projectId"]), // Index for querying commits by project
+  }).index("by_projectId", ["projectId"]),
   repoFiles: defineTable({
     projectId: v.id("project"),
-    filePath: v.string(),
-    content: v.string(),
+    filePath: v.string(), // Full file path (e.g., "src/index.ts")
+    content: v.string(), // The text content of the file
     metadata: v.object({
-      source: v.string(),
+      source: v.string(), // For example, "GitHub" or other details
     }),
   }).index("by_projectId", ["projectId"]),
 });
