@@ -1,18 +1,10 @@
 // File: components/ProjectViewer.tsx
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { useRepoStore, RepoFile } from "@/store/repoStore";
 import RepositoryImporter from "./repositoryImporter";
-
-// Define the type for a repository file coming from Convex.
-interface RepoFile {
-  _id: string;
-  projectId: string;
-  filePath: string; // e.g., "src/index.ts"
-  content: string; // File content as text
-  metadata: { source: string };
-}
 
 // The type for our final UI file tree nodes.
 export type FileTreeNode = {
@@ -131,19 +123,33 @@ const ProjectViewer: React.FC<{
   projectId: string;
   project: { githubUrl: string; githubToken?: string };
 }> = ({ projectId, project }) => {
-  // Query repoFiles for this project.
-  const repoFiles = useQuery(api.repoFiles.getRepoFiles, {
+  // Query repoFiles for this project from Convex.
+  const queryRepoFiles = useQuery(api.repoFiles.getRepoFiles, {
     projectId: projectId as Id<"project">,
   }) as RepoFile[] | null;
 
+  // Use Zustand store to cache repository files.
+  const { repoFiles, setRepoFiles } = useRepoStore();
+
+  // Sync query results into the Zustand store.
+  useEffect(() => {
+    if (queryRepoFiles && queryRepoFiles.length > 0) {
+      setRepoFiles(queryRepoFiles);
+    }
+  }, [queryRepoFiles, setRepoFiles]);
+
+  // Use cached files if available; otherwise, fall back to query result.
+  const filesForDisplay =
+    repoFiles.length > 0 ? repoFiles : queryRepoFiles || [];
+
+  // Build file tree from the repository files.
+  const fileTree = useMemo(
+    () => (filesForDisplay ? buildFileTree(filesForDisplay) : []),
+    [filesForDisplay]
+  );
+
   // State for selected file.
   const [selectedFile, setSelectedFile] = useState<FileTreeNode | null>(null);
-
-  // Build file tree when repoFiles are loaded.
-  const fileTree = useMemo(
-    () => (repoFiles ? buildFileTree(repoFiles) : []),
-    [repoFiles]
-  );
 
   return (
     <div className="flex h-full flex-col">
@@ -157,7 +163,7 @@ const ProjectViewer: React.FC<{
         {/* Sidebar: File Tree */}
         <div className="w-1/3 border-r p-4 overflow-auto">
           <h2 className="font-bold mb-2">File Tree</h2>
-          {repoFiles && repoFiles.length > 0 ? (
+          {filesForDisplay && filesForDisplay.length > 0 ? (
             <FileTree nodes={fileTree} onSelect={setSelectedFile} />
           ) : (
             <div>No repository files found. Click the importer above.</div>
