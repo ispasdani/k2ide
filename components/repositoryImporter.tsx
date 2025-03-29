@@ -1,7 +1,7 @@
 // File: components/RepositoryImporter.tsx
 import React, { useState } from "react";
 import JSZip from "jszip";
-import { useMutation } from "convex/react";
+import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
 
@@ -13,24 +13,35 @@ interface RepoFile {
   };
 }
 
-const RepositoryImporter: React.FC<{
+interface RepositoryImporterProps {
   projectId: string;
   githubUrl: string;
   githubToken?: string;
-}> = ({ projectId, githubUrl, githubToken }) => {
+}
+
+const RepositoryImporter: React.FC<RepositoryImporterProps> = ({
+  projectId,
+  githubUrl,
+  githubToken,
+}) => {
+  // Query to check if repo files exist.
+  const repoFiles = useQuery(api.repoFiles.getRepoFiles, {
+    projectId: projectId as Id<"project">,
+  }) as RepoFile[] | null;
+
   const importRepositoryMutation = useMutation(
     api.importrepository.importRepository
   );
   const [status, setStatus] = useState<string>("");
 
-  // Function to fetch and unzip the repository from GitHub using our proxy endpoint.
   const handleImport = async () => {
     setStatus("Downloading repository ZIP...");
     try {
-      // Build the proxy URL. Our API route (e.g. /api/githubZip) will handle fetching the ZIP.
+      // Use our proxy endpoint to avoid CORS issues.
       const proxyUrl = `/api/githubZip?githubUrl=${encodeURIComponent(
         githubUrl
       )}${githubToken ? `&githubToken=${encodeURIComponent(githubToken)}` : ""}`;
+
       const zipResponse = await fetch(proxyUrl);
       if (!zipResponse.ok) {
         throw new Error(`Failed to download ZIP: ${zipResponse.statusText}`);
@@ -42,7 +53,6 @@ const RepositoryImporter: React.FC<{
       const zip = await jszip.loadAsync(blob);
       const filesToImport: RepoFile[] = [];
 
-      // Collect promises to ensure all files are processed.
       const filePromises: Promise<void>[] = [];
       zip.forEach((relativePath, file) => {
         if (!file.dir && relativePath) {
@@ -61,19 +71,21 @@ const RepositoryImporter: React.FC<{
                 });
               }
             })
-            .catch((e) => {
-              console.error("Failed to read file", relativePath, e);
-            });
+            .catch((e) =>
+              console.error("Failed to read file", relativePath, e)
+            );
           filePromises.push(promise);
         }
       });
       await Promise.all(filePromises);
-
       setStatus("Saving repository files...");
-      // Call the mutation with the array of file objects.
+
+      // Use !! to ensure update is a boolean.
+      const update = !!(repoFiles && repoFiles.length > 0);
       await importRepositoryMutation({
         projectId: projectId as Id<"project">,
         files: filesToImport,
+        update,
       });
 
       setStatus("Repository imported successfully!");
@@ -89,7 +101,9 @@ const RepositoryImporter: React.FC<{
         onClick={handleImport}
         className="px-4 py-2 bg-blue-500 text-white rounded"
       >
-        Get Project Repository
+        {repoFiles && repoFiles.length > 0
+          ? "Update Repository"
+          : "Get Project Repository"}
       </button>
       <p>{status}</p>
     </div>
