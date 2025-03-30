@@ -14,7 +14,7 @@ const Dashboard = () => {
 
         <div className="h-4"></div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 w-full">
           {project ? (
             <ProjectTeam projectId={project._id} />
           ) : (

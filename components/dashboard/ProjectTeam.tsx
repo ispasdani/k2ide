@@ -1,10 +1,30 @@
-// File: components/ProjectTeam.tsx
+"use client";
+
 import React, { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
-// A simple modal component for inviting a user.
+// Invite User Modal (now using Shadcn Dialog)
 const InviteUserModal: React.FC<{
   onClose: () => void;
   onInvite: (email: string, role: string) => void;
@@ -18,50 +38,55 @@ const InviteUserModal: React.FC<{
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white p-6 rounded-md w-80">
-        <h2 className="text-lg font-bold mb-4">Invite User</h2>
-        <form onSubmit={handleSubmit}>
-          <input
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="bg-white border-sidebar-border max-w-md">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">
+            Invite User
+          </DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <Input
             type="email"
             placeholder="Email"
-            className="border border-gray-300 rounded px-2 py-1 w-full mb-4"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
+            className="bg-siderbar border-sidebar-border placeholder-gray-500"
           />
-          <select
-            className="border border-gray-300 rounded px-2 py-1 w-full mb-4"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          >
-            <option value="member">Member</option>
-            <option value="owner">Owner</option>
-          </select>
-          <div className="flex justify-end">
-            <button
+          <Select value={role} onValueChange={setRole}>
+            <SelectTrigger className="bg-sidebar border-sidebar-border">
+              <SelectValue placeholder="Select role" />
+            </SelectTrigger>
+            <SelectContent className="bg-sidebar border-sidebar-border">
+              <SelectItem value="member">Member</SelectItem>
+              <SelectItem value="owner">Owner</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex justify-end gap-2">
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
-              className="mr-2 px-3 py-1 rounded border border-gray-400"
+              className="bg-white text-black border-[#4E4E4E] hover:bg-[#3C3C3C] hover:text-white cursor-pointer"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="px-3 py-1 bg-blue-500 text-white rounded"
+              className="bg-blue-500 text-white hover:bg-blue-700 cursor-pointer"
             >
               Invite
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 };
 
-// The main component for displaying the project team.
+// Main ProjectTeam component
 const ProjectTeam: React.FC<{ projectId: Id<"project"> }> = ({ projectId }) => {
-  // Query the team data for the project.
   const team = useQuery(api.projects.getProjectTeam, { projectId }) as Array<{
     email: string;
     role: string;
@@ -83,64 +108,77 @@ const ProjectTeam: React.FC<{ projectId: Id<"project"> }> = ({ projectId }) => {
     await removeUserAccess({ projectId, email });
   };
 
-  if (!team) return <div>Loading team...</div>;
+  if (!team) return <div className="text-gray-500">Loading team...</div>;
 
   return (
-    <div className="p-4 border rounded bg-white shadow">
-      <h2 className="text-xl font-bold mb-4">Project Team</h2>
-      <div className="space-y-3">
+    <Card className="w-full bg-sidebar border-sidebar-border">
+      <CardHeader>
+        <CardTitle className="text-xl font-bold">Project Team</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
         {team.map((member) => (
           <div
             key={member.email}
-            className="flex items-center justify-between p-2 border rounded"
+            className="flex items-center justify-between py-2 border-b border-sidebar-border last:border-b-0"
           >
             <div className="flex items-center space-x-3">
-              {member.imageUrl ? (
-                <img
-                  src={member.imageUrl}
+              <Avatar className="w-10 h-10">
+                <AvatarImage
+                  src={member.imageUrl || undefined}
                   alt={member.name}
-                  className="w-10 h-10 rounded-full"
                 />
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-gray-300" />
-              )}
+                <AvatarFallback className="bg-[#3C3C3C] text-gray-300">
+                  {member.name.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
               <div>
                 <div className="font-semibold">{member.name}</div>
-                <div className="text-sm text-gray-600">{member.email}</div>
+                <div className="text-sm text-muted-foreground">
+                  {member.email}
+                </div>
               </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <span className="px-2 py-1 bg-gray-200 rounded text-sm">
+            <div className="flex items-center justify-center">
+              <Badge
+                variant={"outline"}
+                className={
+                  member.role === "owner"
+                    ? "bg-[#007ACC] text-white h-[32px] px-3"
+                    : "bg-[#3C3C3C] text-white h-[32px] px-3"
+                }
+              >
                 {member.role}
-              </span>
-              {/* Only allow removal for non-owner members */}
+              </Badge>
               {member.role !== "owner" && (
-                <button
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => handleRemove(member.email)}
-                  className="px-2 py-1 text-red-600 hover:underline text-sm"
+                  className="text-red-400 hover:text-red-600 hover:bg-red-200 ml-3 cursor-pointer"
                 >
                   Remove
-                </button>
+                </Button>
               )}
             </div>
           </div>
         ))}
-      </div>
-      <div className="mt-4">
-        <button
-          onClick={() => setModalOpen(true)}
-          className="px-4 py-2 bg-blue-500 text-white rounded"
-        >
-          Invite User
-        </button>
-      </div>
-      {isModalOpen && (
-        <InviteUserModal
-          onClose={() => setModalOpen(false)}
-          onInvite={handleInvite}
-        />
-      )}
-    </div>
+        <div className="mt-4">
+          <Dialog open={isModalOpen} onOpenChange={setModalOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-[#007ACC] text-white hover:bg-[#005F9E]">
+                Invite User
+              </Button>
+            </DialogTrigger>
+            {isModalOpen && (
+              <InviteUserModal
+                onClose={() => setModalOpen(false)}
+                onInvite={handleInvite}
+              />
+            )}
+          </Dialog>
+        </div>
+      </CardContent>
+    </Card>
   );
 };
 
