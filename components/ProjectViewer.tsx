@@ -143,7 +143,7 @@ const ProjectViewer: React.FC<{
         </div>
       ) : (
         <div className="flex flex-1">
-          <div className="w-1/3 border-r p-4 overflow-auto">
+          <div className="border-r p-4 overflow-auto">
             <h2 className="font-bold mb-2">File Tree</h2>
             {filesForDisplay.length > 0 ? (
               <FileTree nodes={fileTree} onSelect={setSelectedFile} />
@@ -151,9 +151,7 @@ const ProjectViewer: React.FC<{
               <div>No repository files found. Click the importer above.</div>
             )}
           </div>
-          <div className="w-2/3 p-4 overflow-auto">
-            <div>Select "Open Code Editor" to edit files.</div>
-          </div>
+
           {/* Main Panel: Code Viewer */}
           <div className="w-2/3 p-4 overflow-auto">
             {selectedFile ? (
