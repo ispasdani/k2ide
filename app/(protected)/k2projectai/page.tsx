@@ -16,7 +16,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { FileChange } from "@/lib/github";
 import ProjectLinked from "@/components/generalComponents/ProjectLinked";
 import { useCommitsStore } from "@/store/commitStore";
-import ProjectViewer from "@/components/ProjectViewer";
+import ProjectViewer from "@/components/k2ProjectAIComponents/ProjectViewer";
 
 const COMMITS_PER_PAGE = 5;
 

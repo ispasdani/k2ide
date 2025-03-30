@@ -7,7 +7,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useRepoStore, RepoFile } from "@/store/repoStore";
 import ProjectCodeEditor, {
   FileTreeNode,
-} from "./generalComponents/CodeEditor";
+} from "../generalComponents/CodeEditor";
 import RepositoryImporter from "./repositoryImporter";
 
 function buildFileTree(files: RepoFile[]): FileTreeNode[] {
