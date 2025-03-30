@@ -136,3 +136,131 @@ export const getProjectByProjectId = query({
     };
   },
 });
+
+export const getProjectTeam = query({
+  args: { projectId: v.id("project") },
+  async handler(ctx, { projectId }) {
+    // Get the project.
+    const project = await ctx.db.get(projectId);
+    if (!project) {
+      throw new ConvexError("Project not found");
+    }
+
+    const team = [];
+
+    // Get owner info.
+    const owner = await ctx.db.get(project.userId);
+    if (owner) {
+      team.push({
+        email: owner.email,
+        role: "owner",
+        name: owner.name,
+        imageUrl: owner.imageUrl || null,
+        clerkId: owner.clerkId,
+      });
+    }
+
+    // Get team members from sharedWith record.
+    const sharedWith = project.sharedWith || {};
+    for (const email in sharedWith) {
+      // Attempt to get user info for this email.
+      const user = await ctx.db
+        .query("users")
+        .filter((q) => q.eq(q.field("email"), email))
+        .unique();
+      team.push({
+        email,
+        role: sharedWith[email],
+        name: user ? user.name : email,
+        imageUrl: user ? user.imageUrl : null,
+        clerkId: user ? user.clerkId : null,
+      });
+    }
+    return team;
+  },
+});
+
+export const inviteUsersToProject = mutation({
+  args: {
+    projectId: v.id("project"),
+    // A record mapping email to role.
+    invites: v.record(v.string(), v.string()),
+  },
+  async handler(ctx, args) {
+    const { projectId, invites } = args;
+    // Ensure the user is authenticated.
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("User not authenticated");
+    }
+
+    // Look up the current user by email.
+    const currentUser = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), identity.email))
+      .unique();
+    if (!currentUser) {
+      throw new ConvexError("User not found");
+    }
+
+    // Get the project.
+    const project = await ctx.db.get(projectId);
+    if (!project) {
+      throw new ConvexError("Project not found");
+    }
+    // Only the owner can invite new users.
+    if (project.userId !== currentUser._id) {
+      throw new ConvexError("Only the owner can invite users");
+    }
+
+    // Merge existing sharedWith with new invites.
+    const updatedSharedWith = { ...(project.sharedWith || {}), ...invites };
+
+    // Update the project record.
+    await ctx.db.patch(projectId, { sharedWith: updatedSharedWith });
+
+    return { invited: true, message: "Users invited successfully" };
+  },
+});
+
+export const removeUserAccess = mutation({
+  args: {
+    projectId: v.id("project"),
+    email: v.string(),
+  },
+  async handler(ctx, args) {
+    const { projectId, email } = args;
+    // Ensure the user is authenticated.
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new ConvexError("User not authenticated");
+    }
+
+    // Look up the current user.
+    const currentUser = await ctx.db
+      .query("users")
+      .filter((q) => q.eq(q.field("email"), identity.email))
+      .unique();
+    if (!currentUser) {
+      throw new ConvexError("User not found");
+    }
+
+    // Get the project.
+    const project = await ctx.db.get(projectId);
+    if (!project) {
+      throw new ConvexError("Project not found");
+    }
+    // Only the owner can remove user access.
+    if (project.userId !== currentUser._id) {
+      throw new ConvexError("Only the owner can remove user access");
+    }
+
+    // Remove the specified email from the sharedWith record.
+    const updatedSharedWith = { ...project.sharedWith };
+    delete updatedSharedWith[email];
+
+    await ctx.db.patch(projectId, { sharedWith: updatedSharedWith });
+
+    return { removed: true, message: `Access removed for ${email}` };
+  },
+});
