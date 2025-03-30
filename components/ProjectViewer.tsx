@@ -1,5 +1,4 @@
-// File: components/ProjectViewer.tsx
-"use client"; // Add this since it uses client-side hooks
+"use client";
 
 import React, { useState, useMemo, useEffect } from "react";
 import { useQuery } from "convex/react";
@@ -8,7 +7,7 @@ import { Id } from "@/convex/_generated/dataModel";
 import { useRepoStore, RepoFile } from "@/store/repoStore";
 import ProjectCodeEditor, {
   FileTreeNode,
-} from "./generalComponents/CodeEditor"; // Adjust path
+} from "./generalComponents/CodeEditor";
 import RepositoryImporter from "./repositoryImporter";
 
 function buildFileTree(files: RepoFile[]): FileTreeNode[] {
@@ -53,9 +52,6 @@ function buildFileTree(files: RepoFile[]): FileTreeNode[] {
   return convert(tree);
 }
 
-/**
- * Recursive component to display the file tree.
- */
 interface FileTreeProps {
   nodes: FileTreeNode[];
   onSelect: (node: FileTreeNode) => void;
@@ -102,6 +98,13 @@ const ProjectViewer: React.FC<{
 
   const { repoFiles, setRepoFiles } = useRepoStore();
 
+  // Reset repoFiles when projectId changes
+  useEffect(() => {
+    // Clear repoFiles when projectId changes to ensure old data isn't displayed
+    setRepoFiles([]);
+  }, [projectId, setRepoFiles]);
+
+  // Sync repoFiles with query data
   useEffect(() => {
     if (queryRepoFiles && queryRepoFiles.length > 0) {
       setRepoFiles(queryRepoFiles);
@@ -116,7 +119,6 @@ const ProjectViewer: React.FC<{
   );
 
   const [editorMode, setEditorMode] = useState<boolean>(false);
-
   const [selectedFile, setSelectedFile] = useState<FileTreeNode | null>(null);
 
   return (
@@ -151,8 +153,6 @@ const ProjectViewer: React.FC<{
               <div>No repository files found. Click the importer above.</div>
             )}
           </div>
-
-          {/* Main Panel: Code Viewer */}
           <div className="w-2/3 p-4 overflow-auto">
             {selectedFile ? (
               <>

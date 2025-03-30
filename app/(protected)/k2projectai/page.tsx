@@ -16,7 +16,6 @@ import { Id } from "@/convex/_generated/dataModel";
 import { FileChange } from "@/lib/github";
 import ProjectLinked from "@/components/generalComponents/ProjectLinked";
 import { useCommitsStore } from "@/store/commitStore";
-import AskQuestionCard from "@/components/k2ProjectAIComponents/AskQuestionCard";
 import ProjectViewer from "@/components/ProjectViewer";
 
 const COMMITS_PER_PAGE = 5;
