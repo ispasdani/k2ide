@@ -12,9 +12,7 @@ const Dashboard = () => {
       <div className="flex items-start justify-start flex-col flex-wrap gap-y-4">
         <ProjectLinked />
 
-        <div className="h-4"></div>
-
-        <div className="flex items-center gap-4 w-full">
+        <div className="flex items-center w-full">
           {project ? (
             <ProjectTeam projectId={project._id} />
           ) : (

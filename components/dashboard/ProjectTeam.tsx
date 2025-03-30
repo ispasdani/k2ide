@@ -143,7 +143,7 @@ const ProjectTeam: React.FC<{ projectId: Id<"project"> }> = ({ projectId }) => {
                 variant={"outline"}
                 className={
                   member.role === "owner"
-                    ? "bg-[#007ACC] text-white h-[32px] px-3"
+                    ? "bg-blue-500 text-white h-[32px] px-3"
                     : "bg-[#3C3C3C] text-white h-[32px] px-3"
                 }
               >
@@ -165,7 +165,7 @@ const ProjectTeam: React.FC<{ projectId: Id<"project"> }> = ({ projectId }) => {
         <div className="mt-4">
           <Dialog open={isModalOpen} onOpenChange={setModalOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-[#007ACC] text-white hover:bg-[#005F9E]">
+              <Button className="bg-blue-500 text-white hover:bg-blue-700">
                 Invite User
               </Button>
             </DialogTrigger>
