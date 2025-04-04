@@ -7,6 +7,9 @@ const WireframeToCode = () => {
       <h2 className="font-bold text-lg">Convert Wireframe to Code</h2>
       <ImageUpload />
       {/* Moved to a separate project */}
+      {/* Moved to a separate project */}
+      {/* Moved to a separate project */}
+      {/* Moved to a separate project */}
     </div>
   );
 };
